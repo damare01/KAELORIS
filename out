@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kaeloris Attendance</title>
+  <style>
+    :root { --ink:#182b34; --muted:#73828a; --line:#e5eae8; --teal:#087e78; --teal-d:#086a65; --pale:#e9f6f2; --bg:#f6f7f3; --danger:#b4433d; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+    button { font-family:inherit; cursor:pointer; }
+    button:disabled { cursor:not-allowed; opacity:.55; }
+    :focus-visible { outline:3px solid #7ccdc4; outline-offset:3px; }
+    [hidden] { display:none !important; }
+    .app { max-width:900px; margin:auto; padding:24px 20px 50px; }
+    .top { display:flex; align-items:center; justify-content:space-between; gap:16px; padding-bottom:18px; border-bottom:1px solid var(--line); }
+    .brand-name { font-weight:800; font-size:19px; letter-spacing:-.03em; }
+    .brand-name span { color:var(--teal); }
+    .brand-sub { color:var(--muted); font-size:12px; margin-top:2px; }
+    .pill { color:#61736f; font-size:13px; background:#eaf1eb; border:1px solid #dce7df; border-radius:50px; padding:8px 14px; text-align:right; }
+    .pill b { color:var(--teal-d); }
+    .nav { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+    .btn { border:1px solid #dce5e1; background:#fff; color:var(--ink); border-radius:10px; min-height:42px; padding:0 16px; font-weight:700; font-size:13px; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+    .btn:hover:not(:disabled) { background:#f1f7f4; }
+    .btn-primary { background:var(--teal); color:#fff; border-color:var(--teal); }
+    .btn-primary:hover:not(:disabled) { background:var(--teal-d); }
+    .nav .btn[aria-current="page"] { background:var(--teal); border-color:var(--teal); color:#fff; }
+    h1 { font-size:clamp(24px,3vw,32px); letter-spacing:-.04em; margin:0 0 6px; }
+    h2 { font-size:16px; margin:0 0 4px; }
+    .copy { color:var(--muted); font-size:13px; line-height:1.6; margin:0 0 18px; }
+    .panel { background:#fff; border:1px solid var(--line); border-radius:20px; padding:20px; margin-bottom:16px; box-shadow:0 6px 24px #19352b06; }
+    .scan-zone { position:relative; min-height:240px; border:1.5px dashed #a7cdc5; border-radius:16px; background:#f5fbf8; display:flex; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:16px; overflow:hidden; }
+    .scan-zone strong { font-size:14px; } .scan-zone span { color:var(--muted); font-size:12px; margin-top:6px; }
+    #camera-video { width:100%; max-height:390px; aspect-ratio:4/3; object-fit:cover; border-radius:10px; display:none; background:#0d1b20; }
+    .actions { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .banner { margin-top:14px; border-radius:14px; padding:12px 16px; border:1px solid; }
+    .banner strong { display:block; font-size:15px; }
+    .banner span { display:block; font-size:13px; margin-top:3px; }
+    .banner.warn { background:#fff6dc; border-color:#ecd48a; color:#7a5300; }
+    .banner.err { background:#fbe9e7; border-color:#e8b4ae; color:var(--danger); }
+    .banner.info { background:#eef4f3; border-color:#d3e2de; color:#35524d; }
+    .row { border:1px solid var(--line); border-radius:12px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .row + .row { margin-top:8px; }
+    .row strong { display:block; font-size:14px; overflow-wrap:anywhere; }
+    .row small { color:var(--muted); font-size:12px; }
+    .list-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; }
+    .muted { color:var(--muted); font-size:13px; margin:0; }
+    input[type=search], select { min-height:42px; padding:8px 12px; border:1px solid #cbd9d4; border-radius:10px; background:#fff; color:var(--ink); font:inherit; font-size:14px; }
+    input[type=search] { width:100%; }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .toolbar input { flex:1; min-width:180px; }
+    .qr-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px; }
+    .qr-card { border:1px solid var(--line); border-radius:14px; padding:14px; text-align:center; background:#fff; }
+    .qr-holder { display:inline-block; padding:10px; background:#fff; line-height:0; }
+    .qr-card strong { display:block; font-size:13px; margin-top:8px; overflow-wrap:anywhere; }
+    .qr-card small { color:var(--muted); font-size:11px; display:block; margin:2px 0 10px; }
+    .qr-card .btn { min-height:34px; font-size:12px; width:100%; }
+    .footer { margin-top:22px; color:#98a4a0; font-size:11px; text-align:center; }
+    .modal-backdrop { position:fixed; inset:0; z-index:30; background:#152a32b0; display:none; align-items:center; justify-content:center; padding:18px; }
+    .modal-backdrop.open { display:flex; }
+    .modal { width:min(100%,360px); background:#fff; border-radius:22px; padding:28px 22px 22px; text-align:center; box-shadow:0 24px 70px #142b3850; animation:pop .12s ease-out; }
+    @keyframes pop { from { transform:scale(.94); opacity:0; } to { transform:scale(1); opacity:1; } }
+    .modal-icon { width:68px; height:68px; margin:0 auto 14px; border-radius:50%; display:grid; place-items:center; font-size:34px; font-weight:800; color:#fff; }
+    .modal.ok .modal-icon { background:#1f9d62; } .modal.warn .modal-icon { background:#d99a0b; } .modal.err .modal-icon { background:var(--danger); } .modal.info .modal-icon { background:#5b7f7a; }
+    .modal h2 { font-size:21px; letter-spacing:-.03em; margin:0 0 4px; overflow-wrap:anywhere; }
+    .modal .m-status { font-weight:700; font-size:14px; margin:0 0 4px; }
+    .modal.ok .m-status { color:#1f7a4d; } .modal.warn .m-status { color:#9a6a00; } .modal.err .m-status { color:var(--danger); } .modal.info .m-status { color:#35524d; }
+    .modal .m-detail { color:var(--muted); font-size:13px; margin:0 0 18px; min-height:18px; }
+    .modal .btn { width:100%; }
+    @media(max-width:600px){ .app{padding:14px 12px 30px} .pill{display:none} .panel{padding:14px} }
+    @media print {
+      body { background:#fff; }
+      .no-print { display:none !important; }
+      .app { padding:0; max-width:none; }
+      .panel { border:0; box-shadow:none; padding:0; }
+      .qr-grid { grid-template-columns:repeat(3,1fr); }
+      .qr-card { break-inside:avoid; }
+      .qr-card .btn { display:none; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="top no-print">
+    <div>
+      <div class="brand-name">kaeloris<span>.</span>attendance</div>
+      <div class="brand-sub">Cheer Committee · Facilitator workspace</div>
+    </div>
+    <div class="pill"><div id="today-long"></div><b id="today-short"></b></div>
+  </header>
+
+  <nav class="nav no-print" aria-label="Pages">
+    <button class="btn" id="tab-scan" type="button" aria-current="page">Scan</button>
+    <button class="btn" id="tab-manual" type="button">Manual check-in</button>
+    <button class="btn" id="tab-qr" type="button">QR codes</button>
+  </nav>
+
+  <main>
+    <!-- SCAN -->
+    <div id="page-scan">
+      <h1 class="no-print">Scan to check in</h1>
+      <p class="copy no-print">Scanning a member’s QR code marks them present for today and ticks their cell in the sheet.</p>
+
+      <section class="panel">
+        <div class="scan-zone">
+          <video id="camera-video" autoplay muted playsinline aria-label="QR camera preview"></video>
+          <div id="scan-placeholder" style="font-size:40px;margin-bottom:8px">▣</div>
+          <strong id="scan-title">Starting camera…</strong>
+          <span id="scan-caption">Allow camera access when asked.</span>
+        </div>
+        <div class="actions">
+          <button id="camera-btn" class="btn btn-primary" type="button">Start camera</button>
+          <label class="btn" for="photo-input" style="cursor:pointer">📷 Take photo instead</label>
+          <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
+        </div>
+        <div id="banner" class="banner info" role="status" aria-live="polite" hidden></div>
+      </section>
+
+      <section class="panel">
+        <div class="list-head">
+          <h2>Checked in today</h2>
+          <p class="muted" id="today-count"></p>
+        </div>
+        <div id="today-list"></div>
+      </section>
+    </div>
+
+    <!-- MANUAL -->
+    <div id="page-manual" hidden>
+      <h1>Manual check-in</h1>
+      <p class="copy">No QR handy? Find the member by name and mark them present for today.</p>
+      <section class="panel">
+        <input id="search" type="search" placeholder="Search member name…" autocomplete="off" aria-label="Search member">
+        <div id="manual-list" style="margin-top:14px"></div>
+      </section>
+    </div>
+
+    <!-- QR CODES -->
+    <div id="page-qr" hidden>
+      <div class="no-print">
+        <h1>QR codes</h1>
+        <p class="copy">Every member has a unique, permanent code. Download a card, a ZIP of all of them, or print the page.</p>
+      </div>
+      <section class="panel">
+        <div class="toolbar no-print">
+          <select id="qr-year" aria-label="Year level"><option value="all">All years</option></select>
+          <input id="qr-search" type="search" placeholder="Search name…" autocomplete="off" aria-label="Search QR cards">
+          <button id="zip-btn" class="btn btn-primary" type="button">Download all (ZIP)</button>
+          <button id="print-btn" class="btn" type="button">Print</button>
+        </div>
+        <p id="zip-status" class="muted no-print" style="margin:-4px 0 14px" role="status" aria-live="polite"></p>
+        <div id="qr-grid" class="qr-grid"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer no-print">Kaeloris Attendance · records are saved to your Google Sheet</footer>
+</div>
+
+<div id="result-modal" class="modal-backdrop" aria-hidden="true">
+  <div id="modal-card" class="modal ok" role="dialog" aria-modal="true" aria-labelledby="modal-name">
+    <div id="modal-icon" class="modal-icon">✔</div>
+    <h2 id="modal-name">Name</h2>
+    <p id="modal-status" class="m-status"></p>
+    <p id="modal-detail" class="m-detail"></p>
+    <button id="modal-close" class="btn btn-primary" type="button">Next scan</button>
+  </div>
+</div>
+
+<canvas id="scan-canvas" hidden></canvas>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  // Hosted copy (GitHub Pages etc.): your Apps Script web app URL (ends in /exec).
+  const API_URL = 'https://script.google.com/macros/s/AKfycbxU70qnHQxAgVrHV_i7BWgdAb6218V08tXYlnzVJR-mMWc8aLfl-eBrVTXJdqZdylvzJg/exec';
+  const IN_APPS_SCRIPT = !!(window.google && google.script && google.script.run);
+  const CACHE_KEY = 'kaeloris-roster-v1';
+
+  const LIB = {
+    jsqr: 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
+    qr:   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+    zip:  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+  };
+
+  /* ---------- Lazy library loading (keeps first paint fast) ---------- */
+  const libs = {};
+  function loadLib(src) {
+    return libs[src] || (libs[src] = new Promise((ok, fail) => {
+      const s = document.createElement('script');
+      s.src = src; s.onload = ok;
+      s.onerror = () => { delete libs[src]; fail(new Error('Could not load a library. Check your connection.')); };
+      document.head.appendChild(s);
+    }));
+  }
+
+  /* ---------- Server calls ---------- */
+  const call = (fn, ...args) => {
+    if (IN_APPS_SCRIPT) {
+      return new Promise((ok, fail) => google.script.run.withSuccessHandler(ok).withFailureHandler(fail)[fn](...args));
+    }
+    return fetch(API_URL, {
+      method: 'POST',   // no Content-Type header on purpose: simple request, no CORS preflight
+      body: JSON.stringify({ action: ({ getBootstrap: 'bootstrap', getTodayList: 'today' })[fn] || 'mark', code: args[0] })
+    }).then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error || 'Request failed'); return j.data; });
+  };
+
+  /* ---------- State ---------- */
+  let members = [];
+  let checkedIn = [];
+  let todayLoaded = false;
+  let stream = null, scanning = false, busy = false, autoCamera = true;
+  let lastCode = '', lastSeen = 0;
+  let detector = null;
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function extractCode(raw) {
+    let s = String(raw || '').trim();
+    if (s.charAt(0) === '{') { try { const o = JSON.parse(s); s = String(o.code || o.person_code || o.id || ''); } catch (e) { return ''; } }
+    return s.trim().toUpperCase();
+  }
+  function banner(type, title, detail) {
+    const b = $('banner');
+    b.className = 'banner ' + type;
+    b.replaceChildren(el('strong', '', title));
+    if (detail) b.appendChild(el('span', '', detail));
+    b.hidden = false;
+  }
+
+  /* ---------- Header date (instant, no server wait) ---------- */
+  (function showDate() {
+    const now = new Date();
+    $('today-long').textContent = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(now);
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', year: '2-digit', month: '2-digit', day: '2-digit' }).formatToParts(now).map(x => [x.type, x.value]));
+    $('today-short').textContent = 'Date column: ' + p.month + '/' + p.day + '/' + p.year;
+  })();
+
+  /* ---------- Tabs ---------- */
+  function showTab(name) {
+    for (const n of ['scan', 'manual', 'qr']) {
+      $('page-' + n).hidden = n !== name;
+      if (n === name) $('tab-' + n).setAttribute('aria-current', 'page');
+      else $('tab-' + n).removeAttribute('aria-current');
+    }
+    if (name !== 'scan') stopCamera(); else if (autoCamera) startCamera();
+    if (name === 'manual') renderManual();
+    if (name === 'qr') renderQR();
+  }
+  ['scan', 'manual', 'qr'].forEach(n => $('tab-' + n).addEventListener('click', () => showTab(n)));
+
+  /* ---------- Result modal ---------- */
+  let modalOpen = false, modalTimer = null;
+
+  function showModal(type, title, status, detail, autoMs) {
+    clearTimeout(modalTimer);
+    $('modal-card').className = 'modal ' + type;
+    $('modal-icon').textContent = ({ ok: '✔', warn: '!', err: '✕', info: '…' })[type];
+    $('modal-name').textContent = title;
+    $('modal-status').textContent = status;
+    $('modal-detail').textContent = detail || '';
+    $('result-modal').classList.add('open');
+    $('result-modal').setAttribute('aria-hidden', 'false');
+    modalOpen = true;
+    $('modal-close').focus();
+    const ms = autoMs !== undefined ? autoMs : ({ ok: 1800, warn: 3000, err: 4000, info: 0 })[type];
+    if (ms) modalTimer = setTimeout(closeModal, ms);
+  }
+  function closeModal() {
+    clearTimeout(modalTimer);
+    $('result-modal').classList.remove('open');
+    $('result-modal').setAttribute('aria-hidden', 'true');
+    modalOpen = false;
+    lastSeen = Date.now();   // a code still in view won't re-trigger immediately
+  }
+  $('modal-close').addEventListener('click', closeModal);
+  $('result-modal').addEventListener('click', e => { if (e.target === $('result-modal')) closeModal(); });
+  document.addEventListener('keydown', e => { if (modalOpen && (e.key === 'Escape' || e.key === 'Enter')) closeModal(); });
+
+  /* ---------- Check-in ---------- */
+  function addLocal(m, time) {
+    if (!checkedIn.some(p => p.code === m.code)) checkedIn.unshift({ code: m.code, name: m.name, section: m.section, time: time });
+  }
+
+  async function submit(raw) {
+    if (busy) return;
+    busy = true;
+    const code = extractCode(raw);
+    const known = members.find(m => m.code && m.code.toUpperCase() === code);
+
+    if (known) showModal('info', known.name, 'Recording…', known.section);   // optimistic: name shows right away
+    else showModal('info', 'Checking…', 'Looking up this code', '');
+
+    try {
+      const r = await call('markAttendance', raw);
+      if (!r || !r.member) {
+        showModal('err', 'Not recorded', 'Check-in failed', (r && r.message) || 'Unknown code.');
+      } else {
+        const detail = r.member.section + (r.time ? ' · ' + r.time : '');
+        addLocal(r.member, r.time);
+        if (r.status === 'present') {
+          if (navigator.vibrate) navigator.vibrate(60);
+          renderToday(); renderManual();
+          showModal('ok', r.member.name, 'Marked present', detail);
+        } else {
+          showModal('warn', r.member.name, 'Already checked in today', detail);
+        }
+      }
+    } catch (e) {
+      showModal('err', 'Could not reach the sheet', 'Not recorded', (e && e.message) || String(e));
+    } finally { busy = false; }
+  }
+
+  /* ---------- Today's list ---------- */
+  function renderToday() {
+    $('today-count').textContent = todayLoaded ? checkedIn.length + ' of ' + members.length + ' present' : '';
+    const list = $('today-list');
+    list.replaceChildren();
+    if (!todayLoaded) { list.appendChild(el('p', 'muted', 'Loading…')); return; }
+    if (!checkedIn.length) { list.appendChild(el('p', 'muted', 'No one has checked in yet today.')); return; }
+    checkedIn.forEach(p => {
+      const row = el('div', 'row');
+      const d = el('div');
+      d.append(el('strong', '', p.name), el('small', '', p.section));
+      row.append(d, el('small', '', p.time || ''));
+      list.appendChild(row);
+    });
+  }
+
+  /* ---------- QR detection: native BarcodeDetector if present, jsQR otherwise ---------- */
+  const detectorReady = (async () => {
+    try {
+      if ('BarcodeDetector' in window) {
+        const f = await BarcodeDetector.getSupportedFormats();
+        if (f.includes('qr_code')) { detector = new BarcodeDetector({ formats: ['qr_code'] }); return; }
+      }
+    } catch (e) {}
+    await loadLib(LIB.jsqr).catch(() => {});
+  })();
+
+  const scanCtx = $('scan-canvas').getContext('2d', { willReadFrequently: true });
+
+  function jsqrFrom(source, sw, sh, max, inversion) {
+    if (!window.jsQR) return '';
+    const scale = Math.min(1, max / Math.max(sw, sh));
+    const c = $('scan-canvas');
+    c.width = Math.max(1, Math.round(sw * scale)); c.height = Math.max(1, Math.round(sh * scale));
+    scanCtx.drawImage(source, 0, 0, c.width, c.height);
+    const d = scanCtx.getImageData(0, 0, c.width, c.height);
+    const r = window.jsQR(d.data, d.width, d.height, { inversionAttempts: inversion });
+    return r && r.data ? r.data : '';
+  }
+
+  async function decodeVideo(v) {
+    if (detector) { const r = await detector.detect(v); return r.length ? r[0].rawValue : ''; }
+    return jsqrFrom(v, v.videoWidth, v.videoHeight, 640, 'dontInvert');   // fast path: printed dark-on-light codes
+  }
+
+  async function decodePhoto(img) {
+    if (detector) { try { const r = await detector.detect(img); if (r.length) return r[0].rawValue; } catch (e) {} }
+    await loadLib(LIB.jsqr);
+    for (const max of [1000, 700, 1600, 450]) {
+      const raw = jsqrFrom(img, img.width, img.height, max, 'attemptBoth');
+      if (raw) return raw;
+    }
+    return '';
+  }
+
+  /* ---------- Camera ---------- */
+  function stopCamera() {
+    scanning = false;
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    const v = $('camera-video');
+    v.pause(); v.srcObject = null; v.style.display = 'none';
+    $('scan-placeholder').style.display = 'block';
+    $('scan-title').textContent = 'Camera is off';
+    $('scan-caption').textContent = 'Tap Start camera to scan.';
+    $('camera-btn').textContent = 'Start camera';
+  }
+
+  function onScanned(raw) {
+    const now = Date.now();
+    if (raw === lastCode && now - lastSeen < 4000) { lastSeen = now; return; }   // same code still in view
+    lastCode = raw; lastSeen = now;
+    submit(raw);
+  }
+
+  async function scanLoop() {
+    if (!scanning) return;
+    const v = $('camera-video');
+    if (!busy && !modalOpen && v.readyState >= 2 && v.videoWidth) {
+      try { const raw = await decodeVideo(v); if (raw) onScanned(raw); } catch (e) {}
+    }
+    if (!scanning) return;
+    if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(scanLoop);   // decode only when a new frame arrives
+    else requestAnimationFrame(scanLoop);
+  }
+
+  async function startCamera() {
+    if (scanning || starting) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      autoCamera = false;
+      banner('err', 'Camera unavailable', 'Use “Take photo instead” or the Manual check-in tab.');
+      return;
+    }
+    starting = true;
+    $('camera-btn').disabled = true;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      const v = $('camera-video');
+      v.srcObject = stream;
+      v.style.display = 'block';
+      $('scan-placeholder').style.display = 'none';
+      $('scan-title').textContent = 'Looking for a QR code…';
+      $('scan-caption').textContent = 'Hold the code in front of the camera.';
+      $('camera-btn').textContent = 'Stop camera';
+      $('banner').hidden = true;
+      scanning = true;
+      scanLoop();
+      v.play().catch(() => {});
+      const track = stream.getVideoTracks()[0];
+      if (track && track.applyConstraints) track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+    } catch (e) {
+      stopCamera();
+      autoCamera = false;
+      const inApp = /FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|MicroMessenger/i.test(navigator.userAgent);
+      banner('err', 'Could not open the camera (' + ((e && e.name) || 'error') + ')',
+        (inApp ? 'You are in an in-app browser. Open the link in Chrome or Safari. ' : '') +
+        (IN_APPS_SCRIPT
+          ? 'Google’s Apps Script frame blocks the live camera. Use the hosted scanner page, or “Take photo instead”.'
+          : 'Allow camera access for this site in your browser settings, then tap Start camera.'));
+    } finally { starting = false; $('camera-btn').disabled = false; }
+  }
+  let starting = false;
+
+  $('camera-btn').addEventListener('click', () => {
+    if (scanning) { autoCamera = false; stopCamera(); }
+    else { autoCamera = true; startCamera(); }
+  });
+
+  $('photo-input').addEventListener('change', e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    showModal('info', 'Reading photo…', 'Looking for a QR code', '');
+    const img = new Image();
+    img.onload = async () => {
+      let raw = '';
+      try { raw = await decodePhoto(img); } catch (err) {}
+      URL.revokeObjectURL(img.src);
+      if (raw) { closeModal(); submit(raw); }
+      else showModal('err', 'No QR code found', 'Try again', 'Center the code, hold steady, and make sure it is in focus.');
+    };
+    img.src = URL.createObjectURL(file);
+  });
+
+  window.addEventListener('pagehide', stopCamera);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopCamera();
+    else if (autoCamera && !$('page-scan').hidden) startCamera();
+  });
+
+  /* ---------- Manual ---------- */
+  function renderManual() {
+    if ($('page-manual').hidden) return;
+    const q = $('search').value.trim().toLowerCase();
+    const list = $('manual-list');
+    list.replaceChildren();
+    const found = members.filter(m => !q || m.name.toLowerCase().includes(q)).slice(0, 30);
+    if (!found.length) { list.appendChild(el('p', 'muted', members.length ? 'No matching member.' : 'Loading roster…')); return; }
+    const present = new Set(checkedIn.map(p => p.code));
+    found.forEach(m => {
+      const row = el('div', 'row');
+      const d = el('div');
+      d.append(el('strong', '', m.name), el('small', '', m.section + (m.position ? ' · ' + m.position : '')));
+      const b = el('button', 'btn btn-primary', present.has(m.code) ? '✔ Present' : 'Mark present');
+      b.type = 'button';
+      b.disabled = present.has(m.code);
+      b.addEventListener('click', () => submit(m.code));
+      row.append(d, b);
+      list.appendChild(row);
+    });
+  }
+  $('search').addEventListener('input', renderManual);
+
+  /* ---------- QR codes ---------- */
+  function ordinal(y) { return ({ 1: '1st', 2: '2nd', 3: '3rd' })[y] || y + 'th'; }
+
+  async function renderQR() {
+    if ($('page-qr').hidden) return;
+    const grid = $('qr-grid');
+    try { await loadLib(LIB.qr); } catch (e) { grid.replaceChildren(el('p', 'muted', e.message)); return; }
+    const year = $('qr-year').value;
+    const q = $('qr-search').value.trim().toLowerCase();
+    grid.replaceChildren();
+    const frag = document.createDocumentFragment();
+    members
+      .filter(m => m.code && (year === 'all' || String(m.year) === year) && (!q || m.name.toLowerCase().includes(q)))
+      .sort((a, b) => a.year - b.year || a.name.localeCompare(b.name))
+      .forEach(m => {
+        const card = el('div', 'qr-card');
+        const holder = el('div', 'qr-holder');
+        new QRCode(holder, { text: m.code, width: 170, height: 170, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+        const btn = el('button', 'btn', 'Download PNG');
+        btn.type = 'button';
+        btn.addEventListener('click', () => downloadCard(m, holder));
+        card.append(holder, el('strong', '', m.name), el('small', '', m.section + ' · ' + m.code), btn);
+        frag.appendChild(card);
+      });
+    if (!frag.children.length) frag.appendChild(el('p', 'muted', members.length ? 'No members to show.' : 'Loading roster…'));
+    grid.appendChild(frag);
+  }
+
+  function cardCanvas(m, src) {
+    const c = document.createElement('canvas');
+    c.width = 420; c.height = 520;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(src, 40, 30, 340, 340);
+    ctx.fillStyle = '#182b34'; ctx.textAlign = 'center';
+    let size = 24; ctx.font = '700 ' + size + 'px sans-serif';
+    while (ctx.measureText(m.name).width > 380 && size > 12) { size--; ctx.font = '700 ' + size + 'px sans-serif'; }
+    ctx.fillText(m.name, 210, 415);
+    ctx.fillStyle = '#73828a'; ctx.font = '16px sans-serif';
+    ctx.fillText(m.section + '  ·  ' + m.code, 210, 450);
+    ctx.fillText('Kaeloris Cheer Committee', 210, 485);
+    return c;
+  }
+
+  function cardName(m) { return (m.section + '-' + m.name + '-' + m.code).replace(/[^\w\-]+/g, '_') + '.png'; }
+
+  function saveBlob(blob, filename) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }
+
+  function downloadCard(m, holder) {
+    const src = holder.querySelector('canvas');
+    if (!src) return;
+    cardCanvas(m, src).toBlob(b => saveBlob(b, cardName(m)), 'image/png');
+  }
+
+  /* One PNG per member, zipped, one folder per year. Respects the year filter. */
+  async function downloadAll() {
+    const year = $('qr-year').value;
+    const list = members
+      .filter(m => m.code && (year === 'all' || String(m.year) === year))
+      .sort((a, b) => a.year - b.year || a.name.localeCompare(b.name));
+    const status = $('zip-status');
+    if (!list.length) return;
+    const btn = $('zip-btn');
+    btn.disabled = true;
+    try {
+      status.textContent = 'Loading…';
+      await Promise.all([loadLib(LIB.qr), loadLib(LIB.zip)]);
+      const zip = new JSZip();
+      const tmp = document.createElement('div');
+      for (let i = 0; i < list.length; i++) {
+        const m = list[i];
+        status.textContent = 'Building ' + (i + 1) + ' of ' + list.length + '…';
+        tmp.replaceChildren();
+        new QRCode(tmp, { text: m.code, width: 170, height: 170, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+        const blob = await new Promise(res => cardCanvas(m, tmp.querySelector('canvas')).toBlob(res, 'image/png'));
+        zip.folder(ordinal(m.year) + ' year').file(cardName(m), blob);
+        if (i % 5 === 4) await new Promise(r => setTimeout(r));
+      }
+      status.textContent = 'Zipping…';
+      const out = await zip.generateAsync({ type: 'blob' });
+      saveBlob(out, 'Kaeloris-QR-codes' + (year === 'all' ? '' : '-' + ordinal(Number(year)) + '-year') + '.zip');
+      status.textContent = 'Downloaded ' + list.length + ' QR cards in one ZIP.';
+    } catch (e) {
+      status.textContent = 'Could not build the ZIP: ' + ((e && e.message) || e);
+    } finally { btn.disabled = false; }
+  }
+
+  $('qr-year').addEventListener('change', renderQR);
+  $('qr-search').addEventListener('input', renderQR);
+  $('print-btn').addEventListener('click', () => window.print());
+  $('zip-btn').addEventListener('click', downloadAll);
+
+  /* ---------- Roster: show cached copy instantly, refresh in the background ---------- */
+  function readCache() { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) { return null; } }
+  function writeCache(data) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ members: data.members })); } catch (e) {} }
+
+  function applyData(data, fromCache) {
+    members = data.members || [];
+    if (!fromCache) { checkedIn = data.checkedIn || []; todayLoaded = true; }
+    const sel = $('qr-year');
+    const keep = sel.value;
+    sel.replaceChildren(new Option('All years', 'all'));
+    Array.from(new Set(members.map(m => m.year))).sort().forEach(y => sel.appendChild(new Option(ordinal(y) + ' year', String(y))));
+    if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
+    renderToday(); renderManual();
+    if (!$('page-qr').hidden) renderQR();
+  }
+
+  async function init() {
+    renderToday();
+    const cached = readCache();
+    if (cached && cached.members) applyData(cached, true);
+    try {
+      const data = await call('getBootstrap');
+      applyData(data, false);
+      writeCache(data);
+      setTimeout(() => loadLib(LIB.qr).catch(() => {}), 1500);   // warm up the QR tab
+    } catch (e) {
+      const msg = (e && e.message) || String(e);
+      if (!members.length || !todayLoaded) banner('err', 'Could not load the roster', msg + ' You can still scan; check-ins are sent to the sheet.');
+    }
+  }
+
+  /* ---------- Keep "Checked in today" in sync with the sheet ---------- */
+  async function refreshToday() {
+    if (busy || modalOpen) return;
+    try {
+      const list = await call('getTodayList');
+      if (busy || modalOpen) return;
+      checkedIn = list; todayLoaded = true;
+      renderToday(); renderManual();
+    } catch (e) {}
+  }
+  setInterval(() => { if (!document.hidden && !$('page-scan').hidden) refreshToday(); }, 45000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshToday(); });
+
+  /* ---------- Go: camera and roster start in parallel ---------- */
+  startCamera();
+  init();
+</script>
+</body>
+</html>
