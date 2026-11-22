@@ -68,6 +68,10 @@
     .modal.ok .m-status { color:#1f7a4d; } .modal.warn .m-status { color:#9a6a00; } .modal.err .m-status { color:var(--danger); } .modal.info .m-status { color:#35524d; }
     .modal .m-detail { color:var(--muted); font-size:13px; margin:0 0 18px; min-height:18px; }
     .modal .btn { width:100%; }
+    .form label { display:block; font-size:12px; font-weight:700; margin:14px 0 6px; }
+    .form input[type=text], .form input[type=email] { width:100%; min-height:42px; padding:8px 12px; border:1px solid #cbd9d4; border-radius:10px; background:#fff; color:var(--ink); font:inherit; font-size:14px; }
+    .form label.check { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; margin-top:16px; }
+    .form .btn { width:100%; margin-top:16px; }
     @media(max-width:600px){ .app{padding:14px 12px 30px} .pill{display:none} .panel{padding:14px} }
     @media print {
       body { background:#fff; }
@@ -94,6 +98,7 @@
     <button class="btn" id="tab-scan" type="button" aria-current="page">Scan</button>
     <button class="btn" id="tab-manual" type="button">Manual check-in</button>
     <button class="btn" id="tab-qr" type="button">QR codes</button>
+    <button class="btn" id="tab-add" type="button">Add member</button>
   </nav>
 
   <main>
@@ -136,6 +141,31 @@
       </section>
     </div>
 
+    <!-- ADD MEMBER -->
+    <div id="page-add" hidden>
+      <h1>Add member</h1>
+      <p class="copy">New members are added to the roster sheet, get their own QR code, and appear in their year’s attendance sheet.</p>
+      <section class="panel">
+        <form id="add-form" class="form" autocomplete="off">
+          <label for="add-name">Full name</label>
+          <input id="add-name" type="text" placeholder="Surname, First M." required>
+          <label for="add-section">Year level &amp; section</label>
+          <input id="add-section" type="text" maxlength="3" placeholder="3F" required style="text-transform:uppercase">
+          <label for="add-position">Position</label>
+          <input id="add-position" type="text" list="positions" value="MEMBER">
+          <datalist id="positions"><option value="MEMBER"><option value="ASSISTANT EVENT HEAD"><option value="EVENT HEAD"></datalist>
+          <label for="add-email">Email (optional)</label>
+          <input id="add-email" type="email">
+          <label for="add-fb">Facebook link (optional)</label>
+          <input id="add-fb" type="text">
+          <label class="check"><input id="add-mark" type="checkbox"> Also check in today</label>
+          <button id="add-btn" class="btn btn-primary" type="submit">Add member</button>
+        </form>
+        <p id="add-status" class="muted" role="status" aria-live="polite" style="margin-top:12px"></p>
+        <button id="add-qr-btn" class="btn" type="button" hidden style="margin-top:8px">Open their QR code</button>
+      </section>
+    </div>
+
     <!-- QR CODES -->
     <div id="page-qr" hidden>
       <div class="no-print">
@@ -174,7 +204,7 @@
   const $ = id => document.getElementById(id);
 
   // Hosted copy (GitHub Pages etc.): your Apps Script web app URL (ends in /exec).
-  const API_URL = 'https://script.google.com/macros/s/AKfycbxU70qnHQxAgVrHV_i7BWgdAb6218V08tXYlnzVJR-mMWc8aLfl-eBrVTXJdqZdylvzJg/exec';
+  const API_URL = 'https://script.google.com/macros/s/AKfycbxVdkZrZi2_7uUBOo6_Pe6lyn9B4yRPdoCV48VHHoWWUUIACugrp2spNNPaZeErUbmp0w/exec';
   const IN_APPS_SCRIPT = !!(window.google && google.script && google.script.run);
   const CACHE_KEY = 'kaeloris-roster-v1';
 
@@ -202,7 +232,7 @@
     }
     return fetch(API_URL, {
       method: 'POST',   // no Content-Type header on purpose: simple request, no CORS preflight
-      body: JSON.stringify({ action: ({ getBootstrap: 'bootstrap', getTodayList: 'today' })[fn] || 'mark', code: args[0] })
+      body: JSON.stringify({ action: ({ getBootstrap: 'bootstrap', getTodayList: 'today', addMember: 'addMember' })[fn] || 'mark', code: args[0], member: args[0] })
     }).then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error || 'Request failed'); return j.data; });
   };
 
@@ -243,7 +273,7 @@
 
   /* ---------- Tabs ---------- */
   function showTab(name) {
-    for (const n of ['scan', 'manual', 'qr']) {
+    for (const n of ['scan', 'manual', 'qr', 'add']) {
       $('page-' + n).hidden = n !== name;
       if (n === name) $('tab-' + n).setAttribute('aria-current', 'page');
       else $('tab-' + n).removeAttribute('aria-current');
@@ -252,7 +282,7 @@
     if (name === 'manual') renderManual();
     if (name === 'qr') renderQR();
   }
-  ['scan', 'manual', 'qr'].forEach(n => $('tab-' + n).addEventListener('click', () => showTab(n)));
+  ['scan', 'manual', 'qr', 'add'].forEach(n => $('tab-' + n).addEventListener('click', () => showTab(n)));
 
   /* ---------- Result modal ---------- */
   let modalOpen = false, modalTimer = null;
@@ -589,6 +619,63 @@
   $('qr-search').addEventListener('input', renderQR);
   $('print-btn').addEventListener('click', () => window.print());
   $('zip-btn').addEventListener('click', downloadAll);
+
+  /* ---------- Add member ---------- */
+  let addBusy = false, lastAdded = null;
+  function addStatus(msg, isErr) {
+    const st = $('add-status');
+    st.textContent = msg;
+    st.style.color = isErr ? 'var(--danger)' : 'var(--teal-d)';
+  }
+
+  $('add-form').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    if (addBusy) return;
+    const f = {
+      name: $('add-name').value.trim().replace(/\s+/g, ' '),
+      section: $('add-section').value.trim().toUpperCase(),
+      position: $('add-position').value.trim(),
+      email: $('add-email').value.trim(),
+      fb: $('add-fb').value.trim(),
+      markNow: $('add-mark').checked
+    };
+    if (!f.name) return addStatus('Enter the member’s name.', true);
+    if (!/^[1-9][A-Z]{1,2}$/.test(f.section)) return addStatus('Year level should look like 3F.', true);
+    if (members.some(m => m.name.trim().toLowerCase() === f.name.toLowerCase())) return addStatus('That name is already in the roster.', true);
+
+    addBusy = true;
+    const btn = $('add-btn');
+    btn.disabled = true; btn.textContent = 'Adding…';
+    addStatus('Adding to the sheet…');
+    $('add-qr-btn').hidden = true;
+    try {
+      const r = await call('addMember', f);
+      members.push(r.member);
+      writeCache({ members });
+      applyData({ members }, true);
+      lastAdded = r.member;
+      if (r.mark && r.mark.member) {
+        addLocal(r.mark.member, r.mark.time);
+        renderToday(); renderManual();
+        showModal('ok', r.member.name, 'Added and marked present', r.member.section + (r.mark.time ? ' · ' + r.mark.time : ''), 2500);
+      } else {
+        showModal('ok', r.member.name, 'Added to the roster', r.member.section + ' · QR code is ready', 2500);
+      }
+      addStatus(r.member.name + ' was added to ' + r.member.section + '.');
+      $('add-qr-btn').hidden = false;
+      $('add-form').reset();
+      $('add-position').value = 'MEMBER';
+    } catch (e) {
+      addStatus((e && e.message ? e.message : String(e)).replace(/^Error:\s*/, ''), true);
+    } finally { addBusy = false; btn.disabled = false; btn.textContent = 'Add member'; }
+  });
+
+  $('add-qr-btn').addEventListener('click', () => {
+    if (!lastAdded) return;
+    $('qr-year').value = 'all';
+    $('qr-search').value = lastAdded.name;
+    showTab('qr');
+  });
 
   /* ---------- Roster: show cached copy instantly, refresh in the background ---------- */
   function readCache() { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) { return null; } }
